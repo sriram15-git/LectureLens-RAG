@@ -1,0 +1,11 @@
+streamlit
+langchain
+langchain-community
+faiss-cpu
+sentence-transformers
+pymupdf
+pytesseract
+pillow
+opencv-python
+transformers
+torch
