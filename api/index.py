@@ -64,6 +64,7 @@ class ChatResponse(BaseModel):
     latency_ms: int
 
 @app.get("/api/health")
+@app.get("/health")
 async def health_check():
     """Health check endpoint to verify configurations and database connectivity."""
     return {
@@ -75,6 +76,7 @@ async def health_check():
     }
 
 @app.post("/api/chat", response_model=ChatResponse)
+@app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """Processes chat query, retrieves context from Pinecone, queries Gemini, and returns result."""
     if db is None:
