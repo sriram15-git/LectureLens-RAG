@@ -103,9 +103,20 @@ async def chat_endpoint(request: ChatRequest):
         )
 
 # Serve static files for local development
-public_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "public")
-if os.path.exists(public_dir):
-    app.mount("/", StaticFiles(directory=public_dir, html=True), name="public")
+from fastapi.responses import FileResponse
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+@app.get("/")
+async def read_index():
+    return FileResponse(os.path.join(root_dir, "index.html"))
+
+@app.get("/style.css")
+async def read_style():
+    return FileResponse(os.path.join(root_dir, "style.css"))
+
+@app.get("/script.js")
+async def read_script():
+    return FileResponse(os.path.join(root_dir, "script.js"))
 
 # Run using: uvicorn api.index:app --reload
 if __name__ == "__main__":
