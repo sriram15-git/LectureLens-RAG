@@ -102,23 +102,6 @@ async def chat_endpoint(request: ChatRequest):
             detail=f"Error generating response: {str(e)}"
         )
 
-# Catch-all GET and POST routes to diagnose exact paths seen by FastAPI on Vercel
-@app.get("/{path:path}")
-async def catch_all_get(path: str):
-    return {
-        "error": "Not Found",
-        "requested_path": path,
-        "detail": "FastAPI catch-all route triggered"
-    }
-
-@app.post("/{path:path}")
-async def catch_all_post(path: str):
-    return {
-        "error": "Not Found",
-        "requested_path": path,
-        "detail": "FastAPI catch-all route triggered"
-    }
-
 # Serve static files for local development
 public_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "public")
 if os.path.exists(public_dir):
