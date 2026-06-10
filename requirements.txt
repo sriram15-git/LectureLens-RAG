@@ -9,3 +9,11 @@ pillow
 opencv-python
 transformers
 torch
+pinecone-client
+langchain-pinecone
+langchain-google-genai
+google-generativeai
+fastapi
+uvicorn
+python-dotenv
+jsonref

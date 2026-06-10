@@ -1,4 +1,5 @@
 import os
+import time
 import re
 import fitz  # PyMuPDF
 import pytesseract
@@ -8,8 +9,11 @@ import io
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
+from dotenv import load_dotenv
+load_dotenv()
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_pinecone import PineconeVectorStore
+from pinecone import Pinecone, ServerlessSpec
 # Optional captioning
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
@@ -243,14 +247,87 @@ def split_documents(documents):
 def create_vectorstore(chunks):
     print("Creating embeddings...")
 
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    api_key = os.environ.get("PINECONE_API_KEY")
+    index_name = os.environ.get("PINECONE_INDEX_NAME", "rag-project")
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+
+    if not api_key:
+        raise ValueError("PINECONE_API_KEY is not set in environment variables.")
+    if not gemini_key:
+        raise ValueError("GEMINI_API_KEY is not set in environment variables.")
+
+    # 1. Initialize Gemini Embeddings
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/gemini-embedding-2",
+        google_api_key=gemini_key
     )
 
-    db = FAISS.from_documents(chunks, embeddings)
+    # 2. Connect to Pinecone and create index if it doesn't exist
+    pc = Pinecone(api_key=api_key)
+    
+    existing_indexes = pc.list_indexes()
+    index_exists = any(index.name == index_name for index in existing_indexes)
 
-    db.save_local(DB_PATH)
-    print("Vectorstore saved!")
+    if index_exists:
+        desc = pc.describe_index(index_name)
+        if desc.dimension != 3072:
+            print(f"Deleting existing index '{index_name}' due to dimension mismatch ({desc.dimension} vs 3072)...")
+            pc.delete_index(index_name)
+            index_exists = False
+
+    if not index_exists:
+        print(f"Creating Pinecone index '{index_name}' with 3072 dimensions...")
+        pc.create_index(
+            name=index_name,
+            dimension=3072,  # models/gemini-embedding-001 uses 3072 dimensions
+            metric="cosine",
+            spec=ServerlessSpec(
+                cloud="aws",
+                region="us-east-1"
+            )
+        )
+        # Wait for index to be ready
+        while not pc.describe_index(index_name).status['ready']:
+            print("Waiting for Pinecone index to be ready...")
+            time.sleep(2)
+
+    print(f"Uploading {len(chunks)} documents to Pinecone index '{index_name}' in batches to respect rate limits...")
+    
+    # 3. Initialize Vector Store
+    db = PineconeVectorStore(
+        index_name=index_name,
+        embedding=embeddings,
+        pinecone_api_key=api_key
+    )
+    
+    # 4. Upload in batches with a sleep interval and rate-limit retries
+    batch_size = 50
+    for i in range(0, len(chunks), batch_size):
+        batch = chunks[i:i + batch_size]
+        print(f"Uploading batch {i // batch_size + 1}/{-(-len(chunks) // batch_size)} ({len(batch)} chunks)...")
+        
+        uploaded = False
+        retries = 3
+        while not uploaded and retries > 0:
+            try:
+                db.add_documents(batch)
+                uploaded = True
+            except Exception as e:
+                err_msg = str(e)
+                if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "quota" in err_msg.lower():
+                    print("Rate limit reached! Sleeping for 75 seconds to reset free-tier API quota...")
+                    time.sleep(75)
+                    retries -= 1
+                    if retries == 0:
+                        raise e
+                else:
+                    raise e
+                    
+        if i + batch_size < len(chunks):
+            print("Sleeping for 10 seconds to respect API rate limits...")
+            time.sleep(10)
+
+    print("Vectorstore uploaded to Pinecone Cloud!")
 
 
 # -------------------------------

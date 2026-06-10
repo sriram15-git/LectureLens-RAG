@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LectureLens RAG Chatbot</title>
+    <!-- Modern Premium Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar for status & configuration -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fa-solid fa-graduation-cap logo-icon"></i>
+                    <h2>LectureLens</h2>
+                </div>
+                <span class="logo-sub">Advanced RAG Portal</span>
+            </div>
+
+            <div class="status-panel">
+                <h3><i class="fa-solid fa-shield-halved"></i> System Integrity</h3>
+                
+                <div class="status-item">
+                    <span class="status-label">Pinecone Cloud DB</span>
+                    <span id="status-db" class="status-indicator loading">
+                        <i class="fa-solid fa-circle-notch fa-spin"></i> Checking
+                    </span>
+                </div>
+
+                <div class="status-item">
+                    <span class="status-label">Gemini 2.5 Flash</span>
+                    <span id="status-gemini" class="status-indicator loading">
+                        <i class="fa-solid fa-circle-notch fa-spin"></i> Checking
+                    </span>
+                </div>
+
+                <div class="status-item">
+                    <span class="status-label">Embedding Model</span>
+                    <span class="status-value font-mono">gemini-embedding-2</span>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h4><i class="fa-solid fa-circle-info"></i> How it works</h4>
+                <p>When you ask a question, the assistant retrieves relevant content from your uploaded lecture notes in Pinecone. If the content similarity is high, it uses RAG (Retrieval-Augmented Generation). Otherwise, it falls back to Gemini's general knowledge.</p>
+            </div>
+
+            <div class="sidebar-footer">
+                <p>&copy; 2026 LectureLens RAG</p>
+                <div class="footer-links">
+                    <a href="https://vercel.com" target="_blank"><i class="fa-triangle fa-xs"></i> Deploy</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-area">
+            <header class="chat-header">
+                <div class="header-info">
+                    <h1>8th Sem Prep Companion</h1>
+                    <p>Powered by Gemini & Pinecone Serverless</p>
+                </div>
+                <div class="header-actions">
+                    <button id="clear-btn" title="Clear Chat History">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Messages Container -->
+            <section class="messages-container" id="messages-container">
+                <!-- Welcome Message -->
+                <div class="message system">
+                    <div class="message-content">
+                        <i class="fa-solid fa-robot welcome-bot-icon"></i>
+                        <h3>Welcome to LectureLens!</h3>
+                        <p>I have scanned your lecture notes on distributed systems, big data, and software engineering. Ask me anything about your course modules, and I will attempt to answer using your notes or general knowledge.</p>
+                        <div class="welcome-suggestions">
+                            <button class="suggest-btn">What is Ring Algorithm?</button>
+                            <button class="suggest-btn">Explain Inter-Process Communication (IPC)</button>
+                            <button class="suggest-btn">What is a distributed system?</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Input Form -->
+            <footer class="chat-footer">
+                <form id="chat-form" class="input-form">
+                    <input 
+                        type="text" 
+                        id="user-input" 
+                        placeholder="Ask a question about your lectures..." 
+                        autocomplete="off" 
+                        required
+                    >
+                    <button type="submit" id="send-btn">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </form>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>

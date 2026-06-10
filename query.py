@@ -1,14 +1,21 @@
-from langchain_community.chat_models import ChatOllama
+import os
+from dotenv import load_dotenv
+load_dotenv()
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_classic.memory import ConversationBufferWindowMemory
 
-# ✅ LLM (use tinyllama if low RAM)
-llm = ChatOllama(model="phi")  # or "llama3" if system supports
+# ✅ LLM (Gemini API)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    google_api_key=os.environ.get("GEMINI_API_KEY"),
+    temperature=0
+)
 
 # ✅ Memory (last 5 interactions)
 memory = ConversationBufferWindowMemory(k=5, return_messages=True)
 
-# ✅ Threshold (FAISS distance → lower is better)
-THRESHOLD = 0.8
+# ✅ Threshold (Pinecone Cosine Similarity → higher is better)
+THRESHOLD = 0.65
 
 
 # ✅ Format chat history properly
@@ -63,11 +70,11 @@ Assistant:
     best_score = docs_and_scores[0][1]
 
     relevant_docs = [
-        doc for doc, score in docs_and_scores if score < THRESHOLD
+        doc for doc, score in docs_and_scores if score > THRESHOLD
     ]
 
-    # 🧠 Decide whether to use RAG
-    use_rag = best_score < 0.5 and is_relevant(query, relevant_docs)
+    # 🧠 Decide whether to use RAG (higher similarity score means more similar)
+    use_rag = best_score > THRESHOLD and is_relevant(query, relevant_docs)
 
     # 🧪 Debug logs
     print("\n--- DEBUG ---")
@@ -128,3 +135,85 @@ Assistant:
     memory.save_context({"input": query}, {"output": response})
 
     return f"{source}\n{response}"
+
+
+def query_rag(query, db):
+    # 🔍 Retrieve docs
+    docs_and_scores = db.similarity_search_with_score(query, k=3)
+
+    # 🧠 Load memory
+    chat_history_raw = memory.load_memory_variables({})["history"]
+    chat_history = format_chat_history(chat_history_raw)
+
+    if not docs_and_scores:
+        prompt = f"""
+You are a helpful assistant.
+
+Chat History:
+{chat_history}
+
+Answer naturally using your knowledge.
+
+User: {query}
+Assistant:
+"""
+        response = llm.invoke(prompt).content
+        memory.save_context({"input": query}, {"output": response})
+        return {
+            "answer": response,
+            "source": "general",
+            "docs": []
+        }
+
+    best_score = docs_and_scores[0][1]
+    relevant_docs = [
+        doc for doc, score in docs_and_scores if score > THRESHOLD
+    ]
+
+    use_rag = best_score > THRESHOLD and is_relevant(query, relevant_docs)
+
+    if use_rag:
+        context = "\n\n".join([doc.page_content for doc in relevant_docs])
+        prompt = f"""
+You are a helpful assistant.
+
+Chat History:
+{chat_history}
+
+Context:
+{context}
+
+Use the context ONLY if it is relevant to the question.
+If the context does not contain the answer, ignore it and answer using your own knowledge.
+
+Clearly indicate in your answer:
+- "From document" if context used
+- "From general knowledge" if not
+
+User: {query}
+Assistant:
+"""
+        response = llm.invoke(prompt).content
+        source = "document"
+    else:
+        prompt = f"""
+You are a helpful assistant.
+
+Chat History:
+{chat_history}
+
+Answer naturally using your knowledge.
+
+User: {query}
+Assistant:
+"""
+        response = llm.invoke(prompt).content
+        source = "general"
+
+    memory.save_context({"input": query}, {"output": response})
+
+    return {
+        "answer": response,
+        "source": source,
+        "docs": [{"content": doc.page_content, "metadata": doc.metadata} for doc in relevant_docs]
+    }

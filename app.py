@@ -1,19 +1,23 @@
 import streamlit as st
-from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+import os
+from dotenv import load_dotenv
+load_dotenv()
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_pinecone import PineconeVectorStore
 from query import answer_query  # ✅ IMPORT YOUR LOGIC
 
 # ------------------------
 # LOAD VECTOR DB
 # ------------------------
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+embeddings = GoogleGenerativeAIEmbeddings(
+    model="models/gemini-embedding-2",
+    google_api_key=os.environ.get("GEMINI_API_KEY")
 )
 
-db = FAISS.load_local(
-    "vectorstore",
-    embeddings,
-    allow_dangerous_deserialization=True
+db = PineconeVectorStore(
+    index_name=os.environ.get("PINECONE_INDEX_NAME", "rag-project"),
+    embedding=embeddings,
+    pinecone_api_key=os.environ.get("PINECONE_API_KEY")
 )
 
 # ------------------------
